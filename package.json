@@ -18,5 +18,8 @@
   ],
   "author": "Daniel Hindi",
   "license": "MIT",
-  "readmeFilename": "README.md"
+  "readmeFilename": "README.md",
+  "prettier": {
+    "singleQuote": true
+  }
 }

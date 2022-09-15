@@ -1,14 +1,14 @@
-var assert = require("assert");
-var archiver = require("archiver");
-var async = require("async");
-var AWS = require("aws-sdk");
-var fs = require("fs");
-var s3 = require("@auth0/s3");
+var assert = require('assert');
+var archiver = require('archiver');
+var async = require('async');
+var AWS = require('aws-sdk');
+var fs = require('fs');
+var s3 = require('@auth0/s3');
 
 function S3Zipper(awsConfig) {
   var self = this;
-  assert.ok(awsConfig, "AWS S3 options must be defined.");
-  assert.notEqual(awsConfig.accessKeyId, undefined, "Requires S3 AWS Key.");
+  assert.ok(awsConfig, 'AWS S3 options must be defined.');
+  assert.notEqual(awsConfig.accessKeyId, undefined, 'Requires S3 AWS Key.');
 
   if (!awsConfig.accessKeyId && !awsConfig.secretAccessKey) {
     // accessKey & secretAccessKey must be optional in order to use
@@ -22,10 +22,10 @@ function S3Zipper(awsConfig) {
     assert.notEqual(
       awsConfig.secretAccessKey,
       undefined,
-      "Requires S3 AWS Secret"
+      'Requires S3 AWS Secret'
     );
-    assert.notEqual(awsConfig.region, undefined, "Requires AWS S3 region.");
-    assert.notEqual(awsConfig.bucket, undefined, "Requires AWS S3 bucket.");
+    assert.notEqual(awsConfig.region, undefined, 'Requires AWS S3 region.');
+    assert.notEqual(awsConfig.bucket, undefined, 'Requires AWS S3 bucket.');
 
     if (awsConfig.sessionToken) {
       AWS.config.update({
@@ -59,9 +59,9 @@ S3Zipper.prototype = {
     return fileObj;
   },
   calculateFileName: function (f) {
-    var name = f.Key.split("/");
+    var name = f.Key.split('/');
     name.shift();
-    name = name.join("/");
+    name = name.join('/');
     return name;
   },
 
@@ -90,15 +90,15 @@ S3Zipper.prototype = {
 
     var bucketParams = {
       Bucket: this.awsConfig.bucket /* required */,
-      Delimiter: "/",
-      Prefix: params.folderName + "/",
+      Delimiter: '/',
+      Prefix: params.folderName + '/',
     };
 
     if (params.startKey) bucketParams.Marker = params.startKey;
 
     if (
-      typeof params.maxFileCount == "function" &&
-      typeof callback == "undefined"
+      typeof params.maxFileCount == 'function' &&
+      typeof callback == 'undefined'
     ) {
       callback = params.maxFileCount;
       params.maxFileCount = null;
@@ -122,20 +122,20 @@ S3Zipper.prototype = {
     };
 
     var emitter = client.listObjects(realParams);
-    emitter.on("data", function (data) {
+    emitter.on('data', function (data) {
       if (data && data.Contents) {
         files.Contents = files.Contents.concat(data.Contents);
       }
     });
 
-    emitter.on("error", function (err) {
-      console.error("unable to get files:", err.stack);
+    emitter.on('error', function (err) {
+      console.error('unable to get files:', err.stack);
       callback(err);
     });
 
-    emitter.on("end", function () {
+    emitter.on('end', function () {
       var data = files;
-      console.log("end");
+      console.log('end');
       var result = [];
       var totalSizeOfPassedFiles = 0;
       var lastScannedFile;
@@ -144,14 +144,14 @@ S3Zipper.prototype = {
         if (passedFile) {
           if (params.maxFileSize && params.maxFileSize < passedFile.Size) {
             console.warn(
-              "Single file size exceeds max allowed size",
+              'Single file size exceeds max allowed size',
               data.Contents[i].Size,
-              ">",
+              '>',
               params.maxFileSize,
               passedFile
             );
             if (result.length == 0) {
-              console.warn("Will zip large file on its own", passedFile.Key);
+              console.warn('Will zip large file on its own', passedFile.Key);
               result.push(passedFile);
               totalSizeOfPassedFiles += passedFile.Size;
             } else break;
@@ -159,7 +159,7 @@ S3Zipper.prototype = {
             params.maxFileSize &&
             totalSizeOfPassedFiles + data.Contents[i].Size > params.maxFileSize
           ) {
-            console.log("Hit max size limit. Split fragment");
+            console.log('Hit max size limit. Split fragment');
             break;
           } else {
             result.push(passedFile);
@@ -191,11 +191,11 @@ S3Zipper.prototype = {
     */
   streamZipDataTo: function (params, callback) {
     if (!params || !params.folderName) {
-      console.error("folderName required");
+      console.error('folderName required');
       return null;
     }
 
-    var zip = new archiver.create("zip");
+    var zip = new archiver.create('zip');
     if (params.pipe) zip.pipe(params.pipe);
 
     var t = this;
@@ -204,7 +204,7 @@ S3Zipper.prototype = {
       if (err) console.error(err);
       else {
         var files = clearedFiles.files;
-        console.log("files", files);
+        console.log('files', files);
         async.map(
           files,
           function (f, callback) {
@@ -215,11 +215,11 @@ S3Zipper.prototype = {
                 else {
                   var name = t.calculateFileName(f);
 
-                  if (name === "") {
+                  if (name === '') {
                     callback(null, f);
                     return;
                   } else {
-                    console.log("zipping ", name, "...");
+                    console.log('zipping ', name, '...');
 
                     zip.append(data.Body, { name: name });
                     callback(null, f);
@@ -230,7 +230,7 @@ S3Zipper.prototype = {
           },
           function (err, results) {
             zip.manifest = results;
-            zip.on("finish", function () {
+            zip.on('finish', function () {
               callback(err, {
                 zip: zip,
                 zippedFiles: results,
@@ -246,25 +246,25 @@ S3Zipper.prototype = {
   },
 
   uploadLocalFileToS3: function (localFileName, s3ZipFileName, callback) {
-    console.log("uploading ", s3ZipFileName, "...");
+    console.log('uploading ', s3ZipFileName, '...');
     var readStream = fs.createReadStream(localFileName); //tempFile
 
     this.s3bucket
       .upload({
         Bucket: this.awsConfig.bucket,
         Key: s3ZipFileName,
-        ContentType: "application/zip",
+        ContentType: 'application/zip',
         Body: readStream,
       })
-      .on("httpUploadProgress", function (e) {
+      .on('httpUploadProgress', function (e) {
         var p = Math.round((e.loaded / e.total) * 100);
-        if (p % 10 == 0) console.log("upload progress", p, "%");
+        if (p % 10 == 0) console.log('upload progress', p, '%');
       })
       .send(function (err, result) {
         readStream.close();
         if (err) callback(err);
         else {
-          console.log("upload completed.");
+          console.log('upload completed.');
           callback(null, result);
         }
       });
@@ -295,11 +295,11 @@ S3Zipper.prototype = {
     }
 
     var t = this;
-    params.tmpDir = params.tmpDir ? params.tmpDir + "/" : "";
-    params.zipFileName = params.tmpDir + "__" + Date.now() + ".zip";
+    params.tmpDir = params.tmpDir ? params.tmpDir + '/' : '';
+    params.zipFileName = params.tmpDir + '__' + Date.now() + '.zip';
 
-    if (params.s3ZipFileName.indexOf("/") < 0)
-      params.s3ZipFileName = params.s3FolderName + "/" + params.s3ZipFileName;
+    if (params.s3ZipFileName.indexOf('/') < 0)
+      params.s3ZipFileName = params.s3FolderName + '/' + params.s3ZipFileName;
 
     this.zipToFile(params, function (err, r) {
       if (r && r.zippedFiles && r.zippedFiles.length) {
@@ -316,7 +316,7 @@ S3Zipper.prototype = {
           }
         );
       } else {
-        console.log("no files zipped. nothing to upload");
+        console.log('no files zipped. nothing to upload');
         fs.unlinkSync(params.zipFileName);
         callback(null, {
           zipFileETag: null,
@@ -356,11 +356,11 @@ S3Zipper.prototype = {
 
     var t = this;
     ///local file
-    params.tmpDir = params.tmpDir ? params.tmpDir + "/" : "";
-    params.zipFileName = params.tmpDir + "__" + Date.now() + ".zip";
+    params.tmpDir = params.tmpDir ? params.tmpDir + '/' : '';
+    params.zipFileName = params.tmpDir + '__' + Date.now() + '.zip';
 
-    if (params.s3ZipFileName.indexOf("/") < 0)
-      params.s3ZipFileName = params.s3FolderName + "/" + params.s3ZipFileName;
+    if (params.s3ZipFileName.indexOf('/') < 0)
+      params.s3ZipFileName = params.s3FolderName + '/' + params.s3ZipFileName;
 
     var finalResult;
 
@@ -372,7 +372,7 @@ S3Zipper.prototype = {
         if (!result || result.length == 0) callback(null, result); /// dont need to wait for uploads
       }
     }).onFileZipped = function (fragFileName, result) {
-      var s3fn = params.s3ZipFileName.replace(".zip", "_" + count + ".zip");
+      var s3fn = params.s3ZipFileName.replace('.zip', '_' + count + '.zip');
       count++;
       uploadFrag(s3fn, fragFileName, result);
     };
@@ -386,7 +386,7 @@ S3Zipper.prototype = {
         function (err, uploadResult) {
           if (uploadResult) {
             result.uploadedFile = uploadResult;
-            console.log("remove temp file ", localFragName);
+            console.log('remove temp file ', localFragName);
             fs.unlinkSync(localFragName);
           }
           pendingUploads--;
@@ -474,11 +474,11 @@ S3Zipper.prototype = {
 
     if (params.maxFileSize && params.maxFileSize < 1024)
       console.warn(
-        "Max File Size is really low. This may cause no files to be zipped, maxFileSize set to ",
+        'Max File Size is really low. This may cause no files to be zipped, maxFileSize set to ',
         params.maxFileSize
       );
 
-    if (params.zipFileName.indexOf(".zip") < 0) params.zipFileName += ".zip";
+    if (params.zipFileName.indexOf('.zip') < 0) params.zipFileName += '.zip';
 
     var t = this;
 
@@ -519,7 +519,7 @@ S3Zipper.prototype = {
             if (result.totalFilesScanned > 0)
               recursiveLoop(
                 result.lastScannedFile.Key,
-                params.zipFileName.replace(".zip", "_" + counter + ".zip"),
+                params.zipFileName.replace('.zip', '_' + counter + '.zip'),
                 callback
               );
             ///you're done time to go home
